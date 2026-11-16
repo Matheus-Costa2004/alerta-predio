@@ -1,0 +1,14 @@
+package br.com.fiap.alerta.model;
+
+public enum TipoEventoAuditoria {
+    PREDIO_CRIADO,
+    MORADOR_ENTROU,
+    CONSENTIMENTO_REGISTRADO,
+    ALERTA_DISPARADO,
+    DISPARO_BLOQUEADO,
+    ALERTA_ENCERRADO,
+    ADVERTENCIA,
+    SUSPENSAO,
+    REMOCAO,
+    ACESSO_NEGADO
+}

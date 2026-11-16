@@ -1,0 +1,10 @@
+# Staging: logs detalhados para depurar antes da produção
+alerta:
+  ia:
+    provedor: ${IA_PROVEDOR:gemini}
+
+logging:
+  level:
+    root: INFO
+    br.com.fiap.alerta: DEBUG
+    org.springframework.data.mongodb.core.MongoTemplate: DEBUG

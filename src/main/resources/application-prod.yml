@@ -1,0 +1,10 @@
+# Produção: só o essencial no log
+alerta:
+  ia:
+    provedor: ${IA_PROVEDOR:gemini}
+
+logging:
+  level:
+    root: WARN
+    br.com.fiap.alerta: INFO
+    org.springframework.boot.web.embedded.tomcat: INFO

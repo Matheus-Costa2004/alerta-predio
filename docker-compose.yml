@@ -1,0 +1,91 @@
+# Ambiente local: API + MongoDB em container (não usa o Atlas)
+name: alerta-predio
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: alerta-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?defina MONGO_ROOT_USER no .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?defina MONGO_ROOT_PASSWORD no .env}
+    ports:
+      # Exposto só no localhost, para o Compass ou o mongosh
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - alerta-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-local}
+    image: alerta-predio:local
+    container_name: alerta-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/${MONGO_DATABASE:-alerta}?authSource=admin
+      APP_ENV: ${APP_ENV:-local}
+      APP_VERSION: ${APP_VERSION:-local}
+      SEED_ENABLED: ${SEED_ENABLED:-true}
+      IA_PROVEDOR: ${IA_PROVEDOR:-fake}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODELO: ${GEMINI_MODELO:-gemini-3.5-flash-lite}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:alerta-predio@example.com}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75}
+      LOG_FILE: /app/logs/alerta-predio.log
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - api-logs:/app/logs
+    networks:
+      - alerta-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Sobe só com: docker compose --profile tools up -d
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: alerta-mongo-express
+    profiles:
+      - tools
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/?authSource=admin
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_USER:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_PASSWORD:?defina ME_PASSWORD no .env}
+    ports:
+      - "127.0.0.1:${MONGO_EXPRESS_PORT:-8081}:8081"
+    networks:
+      - alerta-net
+
+volumes:
+  mongo-data:
+    name: alerta-mongo-data
+  api-logs:
+    name: alerta-api-logs
+
+networks:
+  alerta-net:
+    name: alerta-net
+    driver: bridge
